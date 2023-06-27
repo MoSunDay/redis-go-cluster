@@ -436,16 +436,21 @@ func (cluster *Cluster) handleUpdate() {
 }
 
 func (cluster *Cluster) inform(node *redisNode) {
-	mesg := updateMesg{
-		node:      node,
-		movedTime: time.Now(),
-	}
 
-	select {
-	case cluster.updateList <- mesg:
-		// Push update message, no more to do.
-	default:
-		// Update channel full, just carry on.
+	// mesg := updateMesg{
+	// 	node:      node,
+	// 	movedTime: time.Now(),
+	// }
+
+	// select {
+	// case cluster.updateList <- mesg:
+	// 	// Push update message, no more to do.
+	// default:
+	// 	// Update channel full, just carry on.
+	// }
+	err := cluster.update(node)
+	if err != nil {
+		log.Printf("handleUpdate: %v\n", err)
 	}
 }
 
