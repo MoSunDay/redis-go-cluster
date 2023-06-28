@@ -175,7 +175,7 @@ func (cluster *Cluster) handleMove(node *redisNode, replyMsg, cmd string, args [
 	}
 
 	// cluster has changed, inform update routine
-	cluster.inform(node)
+	cluster.inform(node, true)
 
 	newNode, err := cluster.getNodeByAddr(fields[2])
 	if err != nil {
@@ -247,7 +247,7 @@ func (cluster *Cluster) handleConnTimeout(node *redisNode, cmd string, args []in
 	if _, ok := reply.(redisError); !ok {
 		// we happen to choose the right node, which means
 		// that cluster has changed, so inform update routine.
-		cluster.inform(randomNode)
+		cluster.inform(randomNode, false)
 		return reply, nil
 	}
 
@@ -275,7 +275,7 @@ func (cluster *Cluster) handleConnTimeout(node *redisNode, cmd string, args []in
 	}
 
 	// cluster change, inform back routine to update
-	cluster.inform(randomNode)
+	cluster.inform(randomNode, true)
 
 	newNode, err := cluster.getNodeByAddr(fields[2])
 	if err != nil {
@@ -435,23 +435,28 @@ func (cluster *Cluster) handleUpdate() {
 	}
 }
 
-func (cluster *Cluster) inform(node *redisNode) {
+func (cluster *Cluster) inform(node *redisNode, forceUpdate bool) {
 
-	// mesg := updateMesg{
-	// 	node:      node,
-	// 	movedTime: time.Now(),
-	// }
-
-	// select {
-	// case cluster.updateList <- mesg:
-	// 	// Push update message, no more to do.
-	// default:
-	// 	// Update channel full, just carry on.
-	// }
-	err := cluster.update(node)
-	if err != nil {
-		log.Printf("handleUpdate: %v\n", err)
+	if forceUpdate {
+		err := cluster.update(node)
+		if err != nil {
+			log.Printf("handleUpdate: %v\n", err)
+		}
+		return
 	}
+
+	mesg := updateMesg{
+		node:      node,
+		movedTime: time.Now(),
+	}
+
+	select {
+	case cluster.updateList <- mesg:
+		// Push update message, no more to do.
+	default:
+		// Update channel full, just carry on.
+	}
+
 }
 
 func (cluster *Cluster) getNodeByAddr(addr string) (*redisNode, error) {
